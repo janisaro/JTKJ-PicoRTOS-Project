@@ -17,6 +17,37 @@
 
 #define DEFAULT_STACK_SIZE 2048
 #define CDC_ITF_TX      1
+#define MORSE_BUFFER_SIZE 100  //teen morsekoodille bufferin, johon tallennetaan morsekoodin merkit ennen niiden lähettämistä USB:n kautta.
+
+typedef struct {
+    const char *morse;
+    char letter;
+} Morse_code;  //luon taulukon morse_code kirjaimille ja numeroille, jotta voin muuntaa kirjaimet ja numerot morsekoodiksi.
+
+static const Morse_code morse_table[] = {
+    {".-", 'A'}, {"-...", 'B'}, {"-.-.", 'C'}, {"-..", 'D'},
+    {".", 'E'}, {"..-.", 'F'}, {"--.", 'G'}, {"....", 'H'},
+    {"..", 'I'}, {".---", 'J'}, {"-.-", 'K'}, {".-..", 'L'},
+    {"--", 'M'}, {"-.", 'N'}, {"---", 'O'}, {".--.", 'P'},
+    {"--.-", 'Q'}, {".-.", 'R'}, {"...", 'S'}, {"-", 'T'},
+    {"..-", 'U'}, {"...-", 'V'}, {".--", 'W'}, {"-..-", 'X'},
+    {"-.--", 'Y'}, {"--..", 'Z'},
+    {".----", '1'}, {"..---", '2'}, {"...--", '3'},
+    {"....-", '4'}, {".....", '5'}, {"-....", '6'},
+    {"--...", '7'}, {"---..", '8'}, {"----.", '9'},
+    {"-----", '0'}
+};
+
+#define MORSE_TABLE_SIZE (sizeof(morse_table) / sizeof(Morse_code))   //lasketaan morsekooditaulukon koko, jotta voidaan käyttää sitä myöhemmin morsekoodin muuntamiseen kirjaimiksi ja numeroiksi.
+
+static char morse_to_char(const char *morse) {
+    for (size_t i = 0; i < MORSE_TABLE_SIZE; ++i) {
+        if (strcmp(morse_table[i].morse, morse) == 0) {
+            return morse_table[i].letter;
+        }
+    }
+    return '?'; //palautetaan kysymysmerkki, jos morsekoodia ei löydy taulukosta.
+}
 
 
 // Tehtävä 3: Tilakoneen esittely Add missing states.
@@ -174,23 +205,30 @@ int main() {
     // Tehtävä 1:  Alusta painike ja LEd ja rekisteröi vastaava keskeytys.
     //             Keskeytyskäsittelijä on määritelty yläpuolella nimellä btn_fxn
 
+    
 
 
+    //Tehdään LCD näytön alustaminen ja viestin odottaminen ja vastaanottaminen
+    init_display();
+    clear_display();
+    write_text_xy(10, 10, "Odotan viestia");
     
-    
+
+
+
     TaskHandle_t hSensorTask, hPrintTask, hUSB = NULL;
 
     // Exercise 4: Uncomment this xTaskCreate to create the task that enables dual USB communication.
     // Tehtävä 4: Poista tämän xTaskCreate-rivin kommentointi luodaksesi tehtävän,
     // joka mahdollistaa kaksikanavaisen USB-viestinnän.
 
-    /*
+    
+    /* ota pois kommentointi seuraavasta rivistä, kun haluat luoda tehtävän, joka mahdollistaa kaksikanavaisen USB-viestinnän.
     xTaskCreate(usbTask, "usb", 2048, NULL, 3, &hUSB);
     #if (configNUMBER_OF_CORES > 1)
         vTaskCoreAffinitySet(hUSB, 1u << 0);
-    #endif
+    #endif 
     */
-
 
     // Create the tasks with xTaskCreate
     BaseType_t result = xTaskCreate(sensor_task, // (en) Task function
