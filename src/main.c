@@ -40,16 +40,34 @@ static const Morse_code morse_table[] = {
 
 #define MORSE_TABLE_SIZE (sizeof(morse_table) / sizeof(Morse_code))   //lasketaan morsekooditaulukon koko, jotta voidaan käyttää sitä myöhemmin morsekoodin muuntamiseen kirjaimiksi ja numeroiksi.
 
-static char morse_to_char(const char *morse) {
-    for (size_t i = 0; i < MORSE_TABLE_SIZE; ++i) {
-        if (strcmp(morse_table[i].morse, morse) == 0) {
+static char morse_to_char(const char *morse) {      //luodaan funktio, joka muuntaa morsekoodin kirjaimeksi tai numeroksi.
+    for (size_t i = 0; i < MORSE_TABLE_SIZE; ++i) {  //käydään läpi morsekooditaulukko ja verrataan syötettyä morsekoodia taulukon morsekoodiin.
+        if (strcmp(morse_table[i].morse, morse) == 0) {  //jos syötetty morsekoodi löytyy taulukosta, palautetaan vastaava kirjain tai numero.
             return morse_table[i].letter;
         }
     }
     return '?'; //palautetaan kysymysmerkki, jos morsekoodia ei löydy taulukosta.
 }
 
+// rakennetaan seuraavaksi decoder-funktio, joka ottaa morsekoodin merkkijonona ja palauttaa vastaavan kirjaimen tai numeron.
+static void decode_morse(const char *input, char *output, size_t output_size)
+{
+    size_t outputlength = 0;    // alustetaan output-merkkijonon pituus nollaksi
+    if (output_size == 0){
+        return;
+    }
+    output[0] = '\0'; // alustetaan output tyhjäksi merkkijonoksi
 
+    while (*input != '\0'){     // käydään läpi input-merkkijono merkki kerrallaan
+        if (*input == ' '){     // jos merkki on välilyönti, lisätään välilyönti output-merkkijonoon
+            size_t space_count = 0;     // alustetaan välilyöntien laskuri nollaksi
+            while (*input == ' '){      // käydään läpi kaikki peräkkäiset välilyönnit
+                space_count++;
+                input++;
+            }
+        }
+    }
+}
 // Tehtävä 3: Tilakoneen esittely Add missing states.
 // Exercise 3: Definition of the state machine. Add missing states.
 enum state { WAITING=1, DATA_READY=2 };
