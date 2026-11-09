@@ -1,5 +1,5 @@
 /**
- * @file usb_comm.c
+ * @file usbcomm.c
  * @brief USB serial communication with the workstation.
  *
  * Uses the stdio-over-USB serial port (printf / getchar), the same way as the

@@ -1,5 +1,5 @@
 /**
- * @file state_machine.h
+ * @file statemachine.h
  * @brief Message composing state machine and button handling.
  */
 
