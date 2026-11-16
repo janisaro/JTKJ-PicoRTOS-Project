@@ -1,12 +1,16 @@
 /**
- * @file statemachine.c
+ * @file state_machine.c
  * @brief Message composing state machine and button handling.
+ *
+ * AI use: the first version of this file was generated with Claude
+ * (Anthropic) and then reduced to the Tier 1 requirements.
+ * TODO (group): describe here which parts you wrote or changed yourselves.
  *
  * Buttons (both active-high, so pressed = rising edge, released = falling edge):
  *   SW1 press        add the symbol of the current device position
  *                    (flat = dot, tilted = dash)
  *   SW2 short press  add a space (one = between letters, two = between words)
- *   SW2 long press   send the message
+ *   SW2 long press   send the message to the workstation over USB serial
  *
  * States:
  *
@@ -23,6 +27,7 @@
  * uses no CPU while the user does nothing.
  */
 
+#include <stdio.h>
 #include <string.h>
 
 #include <pico/stdlib.h>
@@ -30,7 +35,7 @@
 #include "tkjhat/sdk.h"
 
 #include "project.h"
-#include "statemachine.h"
+#include "state_machine.h"
 
 #define BUTTON_DEBOUNCE_MS  30     /* ignore edges closer than this on the same pin */
 #define LONG_PRESS_MS       1000   /* SW2 held at least this long = send            */
@@ -93,13 +98,6 @@ void button_irq_handler(uint gpio, uint32_t eventMask)
 /* Helpers                                                                */
 /* --------------------------------------------------------------------- */
 
-/** Tell the UI task something happened. */
-static void notify_ui(ui_event_t event, char value)
-{
-    ui_message_t message = { event, value };
-    xQueueSend(uiQueue, &message, 0);
-}
-
 /** Add a character to the message buffer. Returns false if it is full. */
 static bool add_to_buffer(char character)
 {
@@ -139,27 +137,24 @@ static void handle_confirm(void)
     }
 
     if (add_to_buffer(symbol)) {
-        notify_ui(UI_EVENT_TX_SYMBOL, symbol);
         programState = STATE_COMPOSING;
-    } else {
-        notify_ui(UI_EVENT_BUFFER_FULL, 0);
     }
+    /* If the buffer is full the symbol is ignored. */
 }
 
 /** SW2 short press: add a space (never first, never more than two in a row). */
 static void handle_space(void)
 {
     if (messageLength > 0 && trailing_spaces() < 2) {
-        if (add_to_buffer(MORSE_CHAR_SPACE)) {
-            notify_ui(UI_EVENT_TX_SYMBOL, MORSE_CHAR_SPACE);
-        }
+        add_to_buffer(MORSE_CHAR_SPACE);
     }
     programState = STATE_COMPOSING;
 }
 
 /**
- * SW2 long press: hand the message to the USB task.
- * Trailing spaces are removed, because usb_task adds the two closing spaces.
+ * SW2 long press: send the message to the workstation.
+ * Trailing spaces are removed first, because the protocol ends a message
+ * with exactly two spaces and a line feed.
  */
 static void handle_send(void)
 {
@@ -173,15 +168,11 @@ static void handle_send(void)
         return;
     }
 
-    for (size_t i = 0; i < messageLength; i++) {
-        xQueueSend(txQueue, &messageBuffer[i], pdMS_TO_TICKS(50));
-    }
-    char endMarker = MORSE_CHAR_END;
-    xQueueSend(txQueue, &endMarker, pdMS_TO_TICKS(50));
+    messageBuffer[messageLength] = '\0';        /* make it a C string */
+    printf("%s  \n", messageBuffer);            /* message + two spaces + line feed */
+    fflush(stdout);                             /* push it out over USB now */
 
     messageLength = 0;
-    notify_ui(UI_EVENT_TX_SENDING, 0);
-    /* "Message sent" feedback comes from usb_task AFTER the write is done. */
     programState = STATE_IDLE;
 }
 

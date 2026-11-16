@@ -114,10 +114,7 @@ add_subdirectory(examples/hello_serial_bidirectional_client)
 add_executable(${MAIN_TARGET}
     src/main.c
     src/imu.c
-    src/statemachine.c
-    src/ui.c
-    src/usbcomm.c
-    src/morse.c
+    src/state_machine.c
 )
 
 # Links. Add all libraries that application is using. It must at least use the pico_stdlib

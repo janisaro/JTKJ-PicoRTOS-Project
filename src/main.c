@@ -1,12 +1,15 @@
 /**
  * @file main.c
- * @brief Morse code messenger on Raspberry Pi Pico W + JTKJ HAT (FreeRTOS).
+ * @brief Main program for the Morse code project.
  *
- * Program structure (see project.h for the data flow diagram):
+ * This file contains the main function that initializes the system, creates FreeRTOS tasks,
+ * and starts the scheduler. It also sets up the GPIO interrupts for button presses.
+ *
+
+* Program structure (see project.h for the data flow diagram):
  *   imu_task            reads the IMU, works out the device position
- *   state_machine_task  builds the message from button presses + position
- *   usb_task            sends/receives Morse text over USB serial
- *   ui_task             display, buzzer and LED output
+ *   state_machine_task  builds the message from button presses + position,
+ *                       and sends it over USB serial
  *   button_irq_handler  GPIO interrupt for SW1 and SW2
  */
 
@@ -16,54 +19,40 @@
 
 #include <FreeRTOS.h>
 #include <queue.h>
-#include <semphr.h>
 #include <task.h>
 
 #include "tkjhat/sdk.h"
 
 #include "project.h"
 #include "imu.h"
-#include "statemachine.h"
-#include "ui.h"
-#include "usbcomm.h"
+#include "state_machine.h"
 
 /* Shared objects declared extern in project.h */
 QueueHandle_t positionQueue;
 QueueHandle_t buttonQueue;
-QueueHandle_t txQueue;
-QueueHandle_t rxQueue;
-QueueHandle_t uiQueue;
-SemaphoreHandle_t i2cMutex;
 
-#define POSITION_QUEUE_LENGTH 1                    /* mailbox: only the newest value */
+#define POSITION_QUEUE_LENGTH 1    /* mailbox: only the newest value */
 #define BUTTON_QUEUE_LENGTH   8
-#define TX_QUEUE_LENGTH       (MORSE_BUFFER_SIZE + 8)  /* a whole message fits */
-#define RX_QUEUE_LENGTH       64
-#define UI_QUEUE_LENGTH       16
 
-/** Create all queues and the mutex. Returns true if everything was created. */
-static bool create_shared_objects(void)
+/** Create the two queues. Returns true if both were created. */
+static bool create_queues(void)
 {
     positionQueue = xQueueCreate(POSITION_QUEUE_LENGTH, sizeof(device_position_t));
     buttonQueue   = xQueueCreate(BUTTON_QUEUE_LENGTH, sizeof(button_event_t));
-    txQueue       = xQueueCreate(TX_QUEUE_LENGTH, sizeof(char));
-    rxQueue       = xQueueCreate(RX_QUEUE_LENGTH, sizeof(char));
-    uiQueue       = xQueueCreate(UI_QUEUE_LENGTH, sizeof(ui_message_t));
-    i2cMutex      = xSemaphoreCreateMutex();
 
-    return positionQueue && buttonQueue && txQueue && rxQueue && uiQueue && i2cMutex;
+    return positionQueue && buttonQueue;
 }
 
 int main(void)
 {
-    stdio_init_all();            /* printf / getchar over USB serial */
+    stdio_init_all();            /* printf over USB serial */
     init_hat_sdk();              /* I2C and other HAT basics */
     sleep_ms(300);               /* wait for USB and HAT initialisation */
 
     /* Create the queues BEFORE enabling the interrupts, because the
      * interrupt handler uses buttonQueue. */
-    if (!create_shared_objects()) {
-        printf("__Creating queues or mutex failed__\n");
+    if (!create_queues()) {
+        printf("__Creating queues failed__\n");
         return 0;
     }
 
@@ -77,8 +66,6 @@ int main(void)
     BaseType_t result = pdPASS;
     result &= xTaskCreate(imu_task,           "imu",   DEFAULT_STACK_SIZE, NULL, 2, NULL);
     result &= xTaskCreate(state_machine_task, "state", DEFAULT_STACK_SIZE, NULL, 2, NULL);
-    result &= xTaskCreate(usb_task,           "usb",   DEFAULT_STACK_SIZE, NULL, 2, NULL);
-    result &= xTaskCreate(ui_task,            "ui",    DEFAULT_STACK_SIZE, NULL, 1, NULL);
 
     if (result != pdPASS) {
         printf("__Task creation failed__\n");

@@ -1,21 +1,21 @@
-/**
- * @file imu.c
- * @brief IMU reading and device position recognition.
- *
- * The task does NOT create symbols by itself. It only keeps track of which
- * position the device is in. The state machine reads that position when the
- * user presses SW1 (the confirm button):
- *   POSITION_FLAT   -> dot
- *   POSITION_TILTED -> dash
- *
- * Gravity gives about 1 g on the axis that points down, so the position is
- * found by checking which axis has the gravity:
- *   flat:   az is about +-1 g, ax is about 0
- *   tilted: ax is about +-1 g (device standing on its edge)
- *
- * !!! The axes and the thresholds below are PLACEHOLDERS. Collect real data
- * first (build with IMU_DATA_LOGGING=1), plot it, then fix them. !!!
- */
+ /**
+  * @file imu.c
+  * @brief IMU reading and device position recognition.
+  *
+    * The task does NOT create symbols by itself. It only keeps track of which
+    * position the device is in. The state machine reads that position when the
+    * user presses SW1 (the confirm button):
+    *   POSITION_FLAT   -> dot
+    *   POSITION_TILTED -> dash
+    *
+    * Gravity gives about 1 g on the axis that points down, so the position is
+    * found by checking which axis has the gravity:
+    *   flat:   az is about +-1 g, ax is about 0
+    *   tilted: ax is about +-1 g (device standing on its edge)
+    *
+    * The axes and the thresholds below should be checked with your own data.
+    * Build with IMU_DATA_LOGGING=1 to record it.
+    */
 
 #include <stdio.h>
 #include <math.h>
@@ -37,7 +37,6 @@
 #define SAMPLE_PERIOD_MS   20     /* 50 Hz sampling                         */
 #define FILTER_WINDOW      5      /* moving average over 5 samples          */
 
-/* TODO: tune all of these with real data. */
 #define FLAT_Z_MIN_G       0.8f   /* |az| above this: lying flat            */
 #define FLAT_X_MAX_G       0.3f   /* ... and |ax| below this                */
 #define TILTED_X_MIN_G     0.7f   /* |ax| above this: standing on its edge  */
@@ -79,13 +78,11 @@ void imu_task(void *arg)
 
     float ax = 0, ay = 0, az = 0, gx = 0, gy = 0, gz = 0, temperature = 0;
 
-    /* The IMU shares the I2C bus with the display: protect with the mutex. */
-    xSemaphoreTake(i2cMutex, portMAX_DELAY);
+    /* Start the IMU. Nothing else uses the I2C bus in the Tier 1 version. */
     int initResult = init_ICM42670();
     if (initResult == 0) {
         initResult = ICM42670_start_with_default_values();
     }
-    xSemaphoreGive(i2cMutex);
 
     if (initResult != 0) {
         printf("__IMU init failed (%d)__\n", initResult);
@@ -101,9 +98,7 @@ void imu_task(void *arg)
 #endif
 
     for (;;) {
-        xSemaphoreTake(i2cMutex, portMAX_DELAY);
         int readResult = ICM42670_read_sensor_data(&ax, &ay, &az, &gx, &gy, &gz, &temperature);
-        xSemaphoreGive(i2cMutex);
 
         if (readResult == 0) {
 #if IMU_DATA_LOGGING
