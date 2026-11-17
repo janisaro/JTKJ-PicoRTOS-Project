@@ -65,6 +65,12 @@ static void decode_morse(const char *input, char *output, size_t output_size)
                 space_count++;
                 input++;
             }
+            if (space_count >= 2){     // jos välilyöntejä on kaksi tai enemmän, lisätään välilyönti output-merkkijonoon
+                if (outputlength + 1 < output_size){   // tarkistetaan, että output-merkkijonoon mahtuu vielä yksi merkki
+                    output[outputlength++] = ' ';
+                    output[outputlength] = '\0';    // lisätään merkkijonon loppuun nollamerkki
+                }
+            }
         }
     }
 }
