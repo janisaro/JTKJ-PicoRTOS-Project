@@ -21,7 +21,7 @@
 #define DEFAULT_STACK_SIZE 2048 //pinon koko
 #define MORSE_BUFFER_SIZE 100 // merkkien enimmäismäärä
 
-// laitteen asento imu_task -> positionQueue -> state_machine_task
+// laitteen asento imu_task -> currentPosition -> state_machine_task
 typedef enum {
     POSITION_UNKNOWN = 0,   // välissä -> ei mitään
     POSITION_FLAT,          // piste
