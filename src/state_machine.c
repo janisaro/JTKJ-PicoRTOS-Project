@@ -1,213 +1,161 @@
-/**
- * @file state_machine.c
- * @brief Message composing state machine and button handling.
- *
- * AI use: the first version of this file was generated with Claude
- * (Anthropic) and then reduced to the Tier 1 requirements.
- * TODO (group): describe here which parts you wrote or changed yourselves.
- *
- * Buttons (both active-high, so pressed = rising edge, released = falling edge):
- *   SW1 press        add the symbol of the current device position
- *                    (flat = dot, tilted = dash)
- *   SW2 short press  add a space (one = between letters, two = between words)
- *   SW2 long press   send the message to the workstation over USB serial
- *
- * States:
- *
- *   IDLE        message buffer is empty
- *   COMPOSING   buffer has symbols; waiting for the next button event
- *   SW2_HELD    SW2 is down; on release the press length decides space or send
- *
- *   IDLE --SW1--> COMPOSING --SW1--> COMPOSING
- *   COMPOSING --SW2 pressed--> SW2_HELD
- *   SW2_HELD --released, short--> COMPOSING   (a space was added)
- *   SW2_HELD --released, long---> IDLE        (message was sent)
- *
- * The task sleeps until a button event arrives (blocking xQueueReceive), so it
- * uses no CPU while the user does nothing.
- */
+// Morseviestin muodostus ja lähetys SW1/SW2-painikkeista ja laitteen asennosta
+// lähettää viestin USB-sarjaliikenteen kautta työasemalle
+
+// Syötteet:
+// - SW1 (aktiivinen ylhäällä): piste (vaakataso) tai viiva (kallistettu)
+// - SW2 lyhyt painallus: lisää välilyönnin
+// - SW2 pitkä painallus: lähettää viestin (kun ei tyhjä
+// - Asento: globaali currentPosition (päivittää imu_task)
+
+// Tilat ja siirtymät:
+// - WAITING: SW1 lisää merkin ja pysyy tilassa WAITING;
+//   SW2 painettu (viesti ei tyhjä) -> SW2_HELD
+// - SW2_HELD: SW2 vapautettu -> WAITING (lyhyt: välilyönti, pitkä: lähetys)
+// - Muut tilaan sopimattomat tapahtumat ohitetaan.
+
+// Toteutus: keskeytys -> buttonQueue -> state_machine_task.
 
 #include <stdio.h>
-#include <string.h>
-
 #include <pico/stdlib.h>
-
 #include "tkjhat/sdk.h"
-
 #include "project.h"
-#include "state_machine.h"
 
-#define BUTTON_DEBOUNCE_MS  30     /* ignore edges closer than this on the same pin */
-#define LONG_PRESS_MS       1000   /* SW2 held at least this long = send            */
+#define DEBOUNCE_MS    150      // hylkää tätä lähempänä olevat reunat
+#define LONG_PRESS_MS  1000    // lähettää kun pohjassa näin kauan
+#define TASK_PERIOD_MS 10      // kuinka usein tehtävä tarkistaa jonon
 
-typedef enum {
-    STATE_IDLE = 1,
-    STATE_COMPOSING,
-    STATE_SW2_HELD
-} program_state_t;
+// tilakoneen tilat
+enum state { STATE_WAITING = 1, STATE_SW2_HELD };
 
-/* These variables are only used by the state machine task, so they are static
- * (not global). */
-static program_state_t programState = STATE_IDLE;
+// globaali tilamuuttuja
+enum state programState = STATE_WAITING;
+
+// nämä muuttujat ovat static koska käytetään vain tässä tiedostossa
 static char messageBuffer[MORSE_BUFFER_SIZE];
-static size_t messageLength = 0;
+static int messageLength = 0;
 static TickType_t sw2PressedTick = 0;
 
-/* --------------------------------------------------------------------- */
-/* Interrupt handler                                                      */
-/* --------------------------------------------------------------------- */
-
+// tämän funktion rungon tekemiseen käytin Claudea apuna
+// käsittelee keskeytykset
+// muuttaa reunan painiketapahtumaksi ja laittaa buttonqueueen
 void button_irq_handler(uint gpio, uint32_t eventMask)
 {
-    /* Last accepted edge time of each button, for debouncing. */
-    static TickType_t lastEdgeTick[2] = {0, 0};
-
-    int index;
-    if (gpio == BUTTON1) {
-        index = 0;
-    } else if (gpio == BUTTON2) {
-        index = 1;
-    } else {
-        return;
-    }
-
-    TickType_t now = xTaskGetTickCountFromISR();
-    if ((now - lastEdgeTick[index]) < pdMS_TO_TICKS(BUTTON_DEBOUNCE_MS)) {
-        return;               /* contact bounce */
-    }
-    lastEdgeTick[index] = now;
+    // viimeisimmän hyväksytyn reunan ajanhetki debouncea varten
+    static TickType_t lastButton1EdgeTick = 0;
+    static TickType_t lastButton2EdgeTick = 0;
 
     button_event_t event;
+    TickType_t now = xTaskGetTickCountFromISR();
+
     if (gpio == BUTTON1) {
+        if (now - lastButton1EdgeTick < pdMS_TO_TICKS(DEBOUNCE_MS)) {
+            return;     // bounce
+        }
+        lastButton1EdgeTick = now;
         if (!(eventMask & GPIO_IRQ_EDGE_RISE)) {
-            return;           /* SW1: only the press matters */
+            return;     // vain painalluksella väliä SW1:lle
         }
         event = BUTTON_EVENT_SW1_PRESSED;
-    } else if (eventMask & GPIO_IRQ_EDGE_RISE) {
-        event = BUTTON_EVENT_SW2_PRESSED;
+    } else if (gpio == BUTTON2) {
+        if (now - lastButton2EdgeTick < pdMS_TO_TICKS(DEBOUNCE_MS)) {
+            return;     // bounce
+        }
+        lastButton2EdgeTick = now;
+
+        if (eventMask & GPIO_IRQ_EDGE_RISE) {
+            event = BUTTON_EVENT_SW2_PRESSED;
+        } else {
+            event = BUTTON_EVENT_SW2_RELEASED;
+        }
     } else {
-        event = BUTTON_EVENT_SW2_RELEASED;
-    }
-
-    BaseType_t higherPriorityWoken = pdFALSE;
-    xQueueSendFromISR(buttonQueue, &event, &higherPriorityWoken);
-    portYIELD_FROM_ISR(higherPriorityWoken);
-}
-
-/* --------------------------------------------------------------------- */
-/* Helpers                                                                */
-/* --------------------------------------------------------------------- */
-
-/** Add a character to the message buffer. Returns false if it is full. */
-static bool add_to_buffer(char character)
-{
-    if (messageLength >= MORSE_BUFFER_SIZE - 1) {
-        return false;
-    }
-    messageBuffer[messageLength++] = character;
-    return true;
-}
-
-/** Number of spaces at the end of the message. */
-static size_t trailing_spaces(void)
-{
-    size_t count = 0;
-    while (count < messageLength &&
-           messageBuffer[messageLength - 1 - count] == MORSE_CHAR_SPACE) {
-        count++;
-    }
-    return count;
-}
-
-/** SW1 was pressed: add the symbol of the current position. */
-static void handle_confirm(void)
-{
-    device_position_t position = POSITION_UNKNOWN;
-    if (xQueuePeek(positionQueue, &position, 0) != pdTRUE) {
-        return;               /* IMU has not produced a position yet */
-    }
-
-    char symbol;
-    if (position == POSITION_FLAT) {
-        symbol = MORSE_CHAR_DOT;
-    } else if (position == POSITION_TILTED) {
-        symbol = MORSE_CHAR_DASH;
-    } else {
-        return;               /* between positions: ignore the press */
-    }
-
-    if (add_to_buffer(symbol)) {
-        programState = STATE_COMPOSING;
-    }
-    /* If the buffer is full the symbol is ignored. */
-}
-
-/** SW2 short press: add a space (never first, never more than two in a row). */
-static void handle_space(void)
-{
-    if (messageLength > 0 && trailing_spaces() < 2) {
-        add_to_buffer(MORSE_CHAR_SPACE);
-    }
-    programState = STATE_COMPOSING;
-}
-
-/**
- * SW2 long press: send the message to the workstation.
- * Trailing spaces are removed first, because the protocol ends a message
- * with exactly two spaces and a line feed.
- */
-static void handle_send(void)
-{
-    while (messageLength > 0 &&
-           messageBuffer[messageLength - 1] == MORSE_CHAR_SPACE) {
-        messageLength--;
-    }
-
-    if (messageLength == 0) {
-        programState = STATE_IDLE;   /* nothing to send */
         return;
     }
 
-    messageBuffer[messageLength] = '\0';        /* make it a C string */
-    printf("%s  \n", messageBuffer);            /* message + two spaces + line feed */
-    fflush(stdout);                             /* push it out over USB now */
-
-    messageLength = 0;
-    programState = STATE_IDLE;
+    BaseType_t higherPriorityTaskWoken = pdFALSE;
+    xQueueSendFromISR(buttonQueue, &event, &higherPriorityTaskWoken);
+    portYIELD_FROM_ISR(higherPriorityTaskWoken);
 }
 
-/** The state machine: what each state does with each button event. */
-static void handle_button(button_event_t event)
+//SW1 painallus, piste tai viiva riippuen asennosta
+//ei mitään jos tuntematon tai puskuri täynnä
+void add_symbol(void)
 {
+    // kopioidaan asento kerran, jotta se ei muutu kesken funktion
+    device_position_t position = currentPosition;
+
+    if (messageLength >= MORSE_BUFFER_SIZE - 1) {
+        return;     // bufferi on täynnä
+    }
+    if (position == POSITION_FLAT) {
+        messageBuffer[messageLength] = MORSE_CHAR_DOT;
+        messageLength++;
+    } else if (position == POSITION_TILTED) {
+        messageBuffer[messageLength] = MORSE_CHAR_DASH;
+        messageLength++;
+    }
+}
+
+// sw2 lyhyt painallus -> lisää välilyönnin
+//voidaan painaa vain jos viesti ei ole tyhjä -> viesti ei voi alkaa välilyönnillä
+void add_space(void)
+{
+    if (messageLength < MORSE_BUFFER_SIZE - 1) {
+        messageBuffer[messageLength] = MORSE_CHAR_SPACE;
+        messageLength++;
+    }
+
+    programState = STATE_WAITING;
+}
+
+//sw 2 pitkä painallus -> lähettää viestin USB portin kautta
+//poistetaan lopun välilyönnit ja päätetään kahteen välilyöntiin ja rivinvaihtoon
+void send_message(void)
+{
+    while (messageLength > 0 && messageBuffer[messageLength - 1] == MORSE_CHAR_SPACE) {
+        messageLength--;
+    }
+    if (messageLength > 0) {
+        messageBuffer[messageLength] = '\0';     // c-string
+        printf("%s  \n", messageBuffer);         // viesti, kaksi välilyöntiä ja rivinvaihto
+        fflush(stdout);                          // lähetä heti
+    }
+    messageLength = 0;
+
+    programState = STATE_WAITING;
+}
+
+// päättää mitä painiketapahtuma tekee nykytilassa
+void handle_button_event(button_event_t event)
+{   //tapahtumat jotka eivät sovi nykyiseen tilaan ignorataan, joten vain sallitut siirtymät voivat tapahtua
     switch (programState) {
-    case STATE_IDLE:
-    case STATE_COMPOSING:
+    case STATE_WAITING:
         if (event == BUTTON_EVENT_SW1_PRESSED) {
-            handle_confirm();
-        } else if (event == BUTTON_EVENT_SW2_PRESSED && programState == STATE_COMPOSING) {
-            sw2PressedTick = xTaskGetTickCount();
+            // tilan toiminnallisuus
+            add_symbol();
+        } else if (event == BUTTON_EVENT_SW2_PRESSED && messageLength > 0) {
+            sw2PressedTick = xTaskGetTickCount();    // remember when SW2 went down
+
+            // tilamuutos WAITING -> SW2_HELD
             programState = STATE_SW2_HELD;
         }
         break;
 
     case STATE_SW2_HELD:
         if (event == BUTTON_EVENT_SW2_RELEASED) {
-            TickType_t held = xTaskGetTickCount() - sw2PressedTick;
-            if (held >= pdMS_TO_TICKS(LONG_PRESS_MS)) {
-                handle_send();
+            // painon kesto ratkaisee mitä tehdään
+            TickType_t heldTicks = xTaskGetTickCount() - sw2PressedTick;
+            if (heldTicks >= pdMS_TO_TICKS(LONG_PRESS_MS)) {
+                send_message();     //tilamuutos SW2_HELD -> WAITING
             } else {
-                handle_space();
+                add_space();        // sama
             }
         }
-        /* SW1 while SW2 is held: ignored */
+        // sw1 ignoree kun sw2 on pohjassa
         break;
     }
 }
 
-/* --------------------------------------------------------------------- */
-/* Task                                                                   */
-/* --------------------------------------------------------------------- */
-
+// tilakoneen tehtävä, odottaa painiketapahtumia ja käsittelee ne
 void state_machine_task(void *arg)
 {
     (void)arg;
@@ -215,9 +163,11 @@ void state_machine_task(void *arg)
     button_event_t event;
 
     for (;;) {
-        /* Sleep until a button event arrives. */
-        if (xQueueReceive(buttonQueue, &event, portMAX_DELAY) == pdTRUE) {
-            handle_button(event);
+        // timeout 0: ei odoteta jos jono on tyhjä
+        while (xQueueReceive(buttonQueue, &event, 0) == pdTRUE) {
+            handle_button_event(event);
         }
+
+        vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_MS));
     }
 }
