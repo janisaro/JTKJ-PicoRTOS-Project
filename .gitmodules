@@ -1,3 +1,7 @@
 [submodule "FreeRTOS-Kernel"]
 	path = FreeRTOS-Kernel
 	url = https://github.com/FreeRTOS/FreeRTOS-Kernel.git
+
+[submodule "serial_client"]
+    path = utils/serial_client
+    url = https://github.com/Gr701/serial_client.git
