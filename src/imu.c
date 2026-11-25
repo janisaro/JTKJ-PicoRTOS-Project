@@ -42,7 +42,7 @@ void imu_task(void *arg)
         initResult = ICM42670_start_with_default_values();
     }
     if (initResult != 0) {
-        printf("IMU init failed (%d)\n", initResult);
+        printf("IMU init epäonnistui (%d)\n", initResult);
         vTaskDelete(NULL);
     }
 

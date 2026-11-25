@@ -24,7 +24,7 @@ int main(void)
     // koska keskeytyskäsittelijä käyttää buttonqueue
     buttonQueue = xQueueCreate(BUTTON_QUEUE_LENGTH, sizeof(button_event_t));
     if (buttonQueue == NULL) {
-        printf("__Creating the queue failed__\n");
+        printf("Jonon luonti epäonnistui\n");
         return 0;
     }
 

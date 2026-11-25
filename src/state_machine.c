@@ -25,10 +25,10 @@
 #define TASK_PERIOD_MS 10      // kuinka usein tehtävä tarkistaa jonon
 
 // tilakoneen tilat
-enum state { STATE_WAITING = 1, STATE_SW2_HELD };
+enum state { WAITING = 1, SW2_HELD };
 
 // globaali tilamuuttuja
-enum state programState = STATE_WAITING;
+enum state programState = WAITING;
 
 // nämä muuttujat ovat static koska käytetään vain tässä tiedostossa
 static char messageBuffer[MORSE_BUFFER_SIZE];
@@ -55,7 +55,7 @@ void button_irq_handler(uint gpio, uint32_t eventMask)
         if (!(eventMask & GPIO_IRQ_EDGE_RISE)) {
             return;     // vain painalluksella väliä SW1:lle
         }
-        event = BUTTON_EVENT_SW1_PRESSED;
+        event = SW1_PRESSED;
     } else if (gpio == BUTTON2) {
         if (now - lastButton2EdgeTick < pdMS_TO_TICKS(DEBOUNCE_MS)) {
             return;     // bounce
@@ -63,9 +63,9 @@ void button_irq_handler(uint gpio, uint32_t eventMask)
         lastButton2EdgeTick = now;
 
         if (eventMask & GPIO_IRQ_EDGE_RISE) {
-            event = BUTTON_EVENT_SW2_PRESSED;
+            event = SW2_PRESSED;
         } else {
-            event = BUTTON_EVENT_SW2_RELEASED;
+            event = SW2_RELEASED;
         }
     } else {
         return;
@@ -104,7 +104,7 @@ void add_space(void)
         messageLength++;
     }
 
-    programState = STATE_WAITING;
+    programState = WAITING;
 }
 
 //sw 2 pitkä painallus -> lähettää viestin USB portin kautta
@@ -121,31 +121,31 @@ void send_message(void)
     }
     messageLength = 0;
 
-    programState = STATE_WAITING;
+    programState = WAITING;
 }
 
 // päättää mitä painiketapahtuma tekee nykytilassa
 void handle_button_event(button_event_t event)
 {   //tapahtumat jotka eivät sovi nykyiseen tilaan ignorataan, joten vain sallitut siirtymät voivat tapahtua
     switch (programState) {
-    case STATE_WAITING:
-        if (event == BUTTON_EVENT_SW1_PRESSED) {
+    case WAITING:
+        if (event == SW1_PRESSED) {
             // tilan toiminnallisuus
             add_symbol();
-        } else if (event == BUTTON_EVENT_SW2_PRESSED && messageLength > 0) {
-            sw2PressedTick = xTaskGetTickCount();    // remember when SW2 went down
+        } else if (event == SW2_PRESSED && messageLength > 0) {
+            sw2PressedTick = xTaskGetTickCount();    // muistaa milloin SW2 painettiin
 
-            // tilamuutos WAITING -> SW2_HELD
-            programState = STATE_SW2_HELD;
+            // tilamuutos -> SW2_HELD
+            programState = SW2_HELD;
         }
         break;
 
-    case STATE_SW2_HELD:
-        if (event == BUTTON_EVENT_SW2_RELEASED) {
+    case SW2_HELD:
+        if (event == SW2_RELEASED) {
             // painon kesto ratkaisee mitä tehdään
             TickType_t heldTicks = xTaskGetTickCount() - sw2PressedTick;
             if (heldTicks >= pdMS_TO_TICKS(LONG_PRESS_MS)) {
-                send_message();     //tilamuutos SW2_HELD -> WAITING
+                send_message();     //tilamuutos -> WAITING
             } else {
                 add_space();        // sama
             }
@@ -163,7 +163,7 @@ void state_machine_task(void *arg)
     button_event_t event;
 
     for (;;) {
-        // timeout 0: ei odoteta jos jono on tyhjä
+        // timeout 0, ei odoteta jos jono on tyhjä
         while (xQueueReceive(buttonQueue, &event, 0) == pdTRUE) {
             handle_button_event(event);
         }

@@ -30,9 +30,9 @@ typedef enum {
 } device_position_t;
 // painiketapahtumat button_irq_handler -> buttonQueue -> state_machine_task
 typedef enum {
-    BUTTON_EVENT_SW1_PRESSED = 1,   // pisteen tai viivan lisäys
-    BUTTON_EVENT_SW2_PRESSED,       
-    BUTTON_EVENT_SW2_RELEASED       
+    SW1_PRESSED = 1,   // pisteen tai viivan lisäys
+    SW2_PRESSED,       
+    SW2_RELEASED       
 } button_event_t;
 
 // merkit
@@ -43,7 +43,7 @@ typedef enum {
 
 // volatile koska kääntäjän on luettava aina todellinen arvo (imu_task muuttaa ja state_machine_task lukee)
 extern volatile device_position_t currentPosition; // laitteen nykyinen asento
-extern QueueHandle_t buttonQueue;    // button_event_t arvot jonossa, max 8 arvoa
+extern QueueHandle_t buttonQueue;    // painiketapahtumien arvot jonossa, max 8 arvoa
 
 // esittelyt main.c:ssä määritellyille tehtäville ja keskeytyskäsittelijälle
 void imu_task(void *arg);
