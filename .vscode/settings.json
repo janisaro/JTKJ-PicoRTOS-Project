@@ -12,7 +12,4 @@
     "python.analysis.extraPaths": [
         "~/.micropico-stubs/included"
     ],
-    "cmake.configureArgs": [
-        "-DCMAKE_MAKE_PROGRAM:FILEPATH=C:/Users/Jani S/.pico-sdk/ninja/v1.12.1/ninja.exe"
-    ]
 }
