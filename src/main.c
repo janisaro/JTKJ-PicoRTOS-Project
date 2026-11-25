@@ -32,8 +32,11 @@ int main(void)
     // sw1 tarvii yhden, sw2 kaksi painallusta
     init_button1();
     init_button2();
+    // ääni
+    init_buzzer();
     gpio_set_irq_enabled_with_callback(BUTTON1, GPIO_IRQ_EDGE_RISE, true, button_irq_handler);
     gpio_set_irq_enabled(BUTTON2, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, true);
+
 
     BaseType_t imuTaskResult = xTaskCreate(imu_task, "imu", DEFAULT_STACK_SIZE, NULL, 2, NULL);
     BaseType_t stateTaskResult = xTaskCreate(state_machine_task, "state", DEFAULT_STACK_SIZE, NULL, 2, NULL);

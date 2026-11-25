@@ -20,9 +20,14 @@
 #include "tkjhat/sdk.h"
 #include "project.h"
 
-#define DEBOUNCE_MS    50      // hylkää tätä lähempänä olevat reunat
+#define DEBOUNCE_MS    80      // hylkää tätä lähempänä olevat reunat
 #define LONG_PRESS_MS  1000    // lähettää kun pohjassa näin kauan
 #define TASK_PERIOD_MS 10      // kuinka usein tehtävä tarkistaa jonon
+
+// äänimerkit
+#define TONE_FREQUENCY_HZ  1000    // taajuus
+#define DOT_TONE_MS        80      // lyhyt pisteelle
+#define DASH_TONE_MS       240     // pitkä viivalle
 
 // tilakoneen tilat
 enum state { WAITING = 1, SW2_HELD };
@@ -89,9 +94,11 @@ void add_symbol(void)
     if (position == POSITION_FLAT) {
         messageBuffer[messageLength] = MORSE_CHAR_DOT;
         messageLength++;
+        buzzer_play_tone(TONE_FREQUENCY_HZ, DOT_TONE_MS);   //lyhyt
     } else if (position == POSITION_TILTED) {
         messageBuffer[messageLength] = MORSE_CHAR_DASH;
         messageLength++;
+        buzzer_play_tone(TONE_FREQUENCY_HZ, DASH_TONE_MS);  //pitkä
     }
 }
 
