@@ -11,8 +11,6 @@
 #define PROJECT_H
 
 #include <stdint.h>
-#include <stdbool.h>
-#include <stdlib.h>
 #include <FreeRTOS.h>
 #include <queue.h>
 #include <task.h>
