@@ -26,8 +26,8 @@
 
 // äänimerkit
 #define TONE_FREQUENCY_HZ  1000    // taajuus
-#define DOT_TONE_MS        80      // lyhyt pisteelle
-#define DASH_TONE_MS       240     // pitkä viivalle
+#define DOT_TONE_MS        60      // lyhyt pisteelle
+#define DASH_TONE_MS       180     // pitkä viivalle
 
 // tilakoneen tilat
 enum state { WAITING = 1, SW2_HELD };
