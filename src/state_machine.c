@@ -1,17 +1,17 @@
-// Morseviestin muodostus ja lähetys SW1/SW2-painikkeista ja laitteen asennosta
+// Morseviestin muodostus SW1/SW2-painikkeista ja laitteen asennosta
 // lähettää viestin USB-sarjaliikenteen kautta työasemalle
 
 // Syötteet:
 // - SW1 (aktiivinen ylhäällä): piste (vaakataso) tai viiva (kallistettu)
 // - SW2 lyhyt painallus: lisää välilyönnin
-// - SW2 pitkä painallus: lähettää viestin (kun ei tyhjä
+// - SW2 pitkä painallus: lähettää viestin (kun ei tyhjä)
 // - Asento: globaali currentPosition (päivittää imu_task)
 
 // Tilat ja siirtymät:
 // - WAITING: SW1 lisää merkin ja pysyy tilassa WAITING;
 //   SW2 painettu (viesti ei tyhjä) -> SW2_HELD
 // - SW2_HELD: SW2 vapautettu -> WAITING (lyhyt: välilyönti, pitkä: lähetys)
-// - Muut tilaan sopimattomat tapahtumat ohitetaan.
+// - ohitetaan muut tapahtumat
 
 // Toteutus: keskeytys -> buttonQueue -> state_machine_task.
 
@@ -150,7 +150,7 @@ void handle_button_event(button_event_t event)
                 add_space();        // sama
             }
         }
-        // sw1 ignoree kun sw2 on pohjassa
+        // sw1 ei oteta huomioon kun sw2 on pohjassa
         break;
     }
 }

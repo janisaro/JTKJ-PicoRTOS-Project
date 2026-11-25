@@ -1,7 +1,7 @@
 // Kaikkien tiedostojen yhteiset määrittelyt: vakiot, asento- ja painiketapahtumatyyppi,
 // globaali muuttuja currentPosition, jono buttonQueue sekä funktioesittelyt.
 
-// datan liikkuminen
+// datan liikkuminen:
 // imu_task -> currentPosition -> state_machine_task
 // SW1/2 -> button_irq_handler -> buttonQueue -> state_machine_task
 // state_machine_task -> printf USB portille -> serial client
