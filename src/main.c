@@ -1,3 +1,10 @@
+// JTKJ Harjoitustyö - Morse-viestintäjärjestelmä
+
+//Laite tunnistaa IMU-anturin avulla asennon ja muodostaa Morse-merkkejä painikkeiden avulla.
+//Muodostettu viesti lähetetään USB-sarjaliikenteen kautta työasemalle.
+
+// Tekijät: Jani Sarome, Eemeli Pasma, Matias Utunen
+
 // Ryhmän pisteiden jako: Kaikki ryhmän jäsenet osallistuivat samansuhtaisesti ohjelman tekoon,joten pisteet
 // jaetaan tasan meidän kolmen kesken.
 
