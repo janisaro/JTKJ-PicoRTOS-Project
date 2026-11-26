@@ -75,10 +75,8 @@ void button_irq_handler(uint gpio, uint32_t eventMask)
     } else {
         return;
     }
-
-    BaseType_t higherPriorityTaskWoken = pdFALSE;
-    xQueueSendFromISR(buttonQueue, &event, &higherPriorityTaskWoken);
-    portYIELD_FROM_ISR(higherPriorityTaskWoken);
+    // mikään tehtävä ei odota jonoa, tilakone tarkistaa sen 10ms välein
+    xQueueSendFromISR(buttonQueue, &event, NULL);
 }
 
 //SW1 painallus, piste tai viiva riippuen asennosta
