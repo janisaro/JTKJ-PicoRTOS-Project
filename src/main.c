@@ -28,12 +28,13 @@ int main(void)
         return 0;
     }
 
-    // painikkeet aktiivisiä ylhäällä: painallus = nouseva reuna, vapautus = laskeva reuna
-    // sw1 tarvii yhden, sw2 kaksi painallusta
+    // painikkeet
     init_button1();
     init_button2();
     // ääni
     init_buzzer();
+    // painikkeet aktiivisiä ylhäällä: painallus = nouseva reuna, vapautus = laskeva reuna
+    // sw1 tarvii yhden, sw2 kaksi painallusta
     gpio_set_irq_enabled_with_callback(BUTTON1, GPIO_IRQ_EDGE_RISE, true, button_irq_handler);
     gpio_set_irq_enabled(BUTTON2, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, true);
 
