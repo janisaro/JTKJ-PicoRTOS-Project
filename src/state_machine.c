@@ -125,6 +125,7 @@ void send_message(void)
         messageBuffer[messageLength] = '\0';     // c-string
         printf("%s  \n", messageBuffer);         // viesti, kaksi välilyöntiä ja rivinvaihto
         fflush(stdout);                          // lähetä heti
+        blink_led(1);                            // yksi välähdys lähetyksen jälkeen
     }
     messageLength = 0;
 
@@ -173,6 +174,12 @@ void state_machine_task(void *arg)
         // timeout 0, ei odoteta jos jono on tyhjä
         while (xQueueReceive(buttonQueue, &event, 0) == pdTRUE) {
             handle_button_event(event);
+        }
+
+        // Nopea vapautus voi suodattua keskeytyksessä: tarkistetaan myös painikkeen tila.
+        if (programState == SW2_HELD && !gpio_get(BUTTON2) &&
+            xTaskGetTickCount() - sw2PressedTick >= pdMS_TO_TICKS(DEBOUNCE_MS)) {
+            handle_button_event(SW2_RELEASED);
         }
 
         vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_MS));

@@ -18,6 +18,7 @@ int main(void)
 {   // alustetaan printf USB portille ja JTKJ Hat
     stdio_init_all();       
     init_hat_sdk();         
+    init_led();
     sleep_ms(300);          
 
     // jonot pitää olla olemassa ennen keskeytysten sallimista
