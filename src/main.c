@@ -1,3 +1,7 @@
+// Ryhmän pisteiden jako: Kaikki ryhmän jäsenet osallistuivat samansuhtaisesti ohjelman tekoon,joten pisteet
+// jaetaan tasan meidän kolmen kesken.
+
+
 // Käynnistää järjestelmän: alustaa hatin, luo jonon buttonQueue ja kaksi tehtävää
 // imu_task ja state_machine_task), ottaa painikekeskeytykset käyttöön ja käynnistää ajastimen.
 

@@ -20,7 +20,7 @@
 #include "tkjhat/sdk.h"
 #include "project.h"
 
-#define DEBOUNCE_MS    80      // hylkää tätä lähempänä olevat reunat
+#define DEBOUNCE_MS    50      // hylkää tätä lähempänä olevat reunat
 #define LONG_PRESS_MS  1000    // lähettää kun pohjassa näin kauan
 #define TASK_PERIOD_MS 10      // kuinka usein tehtävä tarkistaa jonon
 
