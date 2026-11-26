@@ -3,7 +3,10 @@
 //Laite tunnistaa IMU-anturin avulla asennon ja muodostaa Morse-merkkejä painikkeiden avulla.
 //Muodostettu viesti lähetetään USB-sarjaliikenteen kautta työasemalle.
 
-// Tekijät: Jani Sarome, Eemeli Pasma, Matias Utunen
+// Tekijät: 
+// Jani Sarome: kesketykset, jono ja tilakone
+// Eemeli Pasma: anturipuoli ja kynnysarvot
+// Matias Utunen: pääohjelman kokoaminen ja testaus
 
 // Ryhmän pisteiden jako: Kaikki ryhmän jäsenet osallistuivat samansuhtaisesti ohjelman tekoon,joten pisteet
 // jaetaan tasan meidän kolmen kesken.
